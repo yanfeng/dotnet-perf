@@ -32,6 +32,8 @@ namespace DotNet.Perf
             base.ApplicationStartup(container, pipelines);
 
             Nancy.Json.JsonSettings.MaxJsonLength = int.MaxValue;
+
+            DropAndCreateTestingTable();
         }
 
         protected override void ConfigureRequestContainer(TinyIoCContainer container, NancyContext context)
@@ -106,15 +108,22 @@ namespace DotNet.Perf
 
         private void DropAndCreateTestingTable()
         {
-            using (var conn = new NpgsqlConnection(options.Database))
+            string connString = options.Database;
+            ExecuteSQL(connString, SQL_DROP_TABLE);
+            ExecuteSQL(connString, SQL_CREATING_TABLE_SCHEMA1);
+            ExecuteSQL(connString, SQL_CREATING_TABLE_SCHEMA2);
+        }
+
+        private void ExecuteSQL(string connString, string SQL)
+        {
+            using (var conn = new NpgsqlConnection(connString))
             {
                 conn.Open();
 
-                // create schema
                 using (var cmd = new NpgsqlCommand())
                 {
                     cmd.Connection = conn;
-                    cmd.CommandText = SQL_DROP_TABLE + SQL_CREATING_TABLE_SCHEMA1 + SQL_CREATING_TABLE_SCHEMA2;
+                    cmd.CommandText = SQL;
                     cmd.ExecuteNonQuery();
                 }
             }
@@ -125,46 +134,52 @@ namespace DotNet.Perf
 
         #region SQL
         private static readonly string SQL_DROP_TABLE = @"
-DROP TABLE IF EXISTS public.perf_testing_product;
-DROP TABLE IF EXISTS public.perf_testing_track_id;
+BEGIN;
+    DROP TABLE IF EXISTS public.perf_testing_product;
+    DROP TABLE IF EXISTS public.perf_testing_track_id;
+COMMIT;
 ";
 
         private static readonly string SQL_CREATING_TABLE_SCHEMA1 = @"
-CREATE TABLE IF NOT EXISTS public.perf_testing_track_id
-(
-    id character varying COLLATE pg_catalog.""default"" NOT NULL,
-    insert_id character varying NOT NULL,
-    CONSTRAINT pk_perf_testing_product PRIMARY KEY(id)
-)
-WITH(
-    OIDS = FALSE
-)
-TABLESPACE pg_default;
+BEGIN;
+    CREATE TABLE IF NOT EXISTS public.perf_testing_track_id
+    (
+        id character varying COLLATE pg_catalog.""default"" NOT NULL,
+        insert_id character varying COLLATE pg_catalog.""default"" NOT NULL,
+        CONSTRAINT perf_testing_track_id_id PRIMARY KEY(id)
+    )
+    WITH(
+        OIDS = FALSE
+    )
+    TABLESPACE pg_default;
+COMMIT;
 ";
 
         private static readonly string SQL_CREATING_TABLE_SCHEMA2 = @"
--- Table: public.perf_testing_product
+BEGIN;
+    -- Table: public.perf_testing_product
 
-CREATE TABLE IF NOT EXISTS public.perf_testing_product
-(
-    id character varying COLLATE pg_catalog.""default"" NOT NULL,
-    data jsonb NOT NULL,
-    mt_last_modified timestamp with time zone DEFAULT transaction_timestamp(),
-    mt_version uuid NOT NULL DEFAULT(md5(((random())::text || (clock_timestamp())::text)))::uuid,
-    mt_dotnet_type character varying COLLATE pg_catalog.""default"",
-    CONSTRAINT pk_perf_testing_product PRIMARY KEY(id)
-)
-WITH(
-    OIDS = FALSE
-)
-TABLESPACE pg_default;
-
--- Index: perf_testing_product_gin_index
-
-CREATE INDEX IF NOT EXISTS perf_testing_product_gin_index
-    ON public.perf_testing_product USING gin
-    (data)
+    CREATE TABLE IF NOT EXISTS public.perf_testing_product
+    (
+        id character varying COLLATE pg_catalog.""default"" NOT NULL,
+        data jsonb NOT NULL,
+        mt_last_modified timestamp with time zone DEFAULT transaction_timestamp(),
+        mt_version uuid NOT NULL DEFAULT(md5(((random())::text || (clock_timestamp())::text)))::uuid,
+        mt_dotnet_type character varying COLLATE pg_catalog.""default"",
+        CONSTRAINT pk_perf_testing_product PRIMARY KEY(id)
+    )
+    WITH(
+        OIDS = FALSE
+    )
     TABLESPACE pg_default;
+
+    -- Index: perf_testing_product_gin_index
+
+    CREATE INDEX IF NOT EXISTS perf_testing_product_gin_index
+        ON public.perf_testing_product USING gin
+        (data)
+        TABLESPACE pg_default;
+COMMIT;
 ";
         #endregion
     }

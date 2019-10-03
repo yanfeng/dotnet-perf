@@ -5,6 +5,7 @@ using Nancy;
 using Nancy.Responses;
 using Newtonsoft.Json;
 using Npgsql;
+using NpgsqlTypes;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -18,8 +19,8 @@ namespace DotNet.Perf
             Get["HttpServer", "/servers/default"] = HttpServer;
 
             Get["HttpServer to test npgsql query operation", "/servers/npgsql"] = HttpServerWithNpgsqlQuery;
-            Get["HttpServer to test npgsql insert operation", "/servers/npgsql-insert"] = HttpServerWithNpgsqlInsert;
-            Get["HttpServer to test npgsql update operation", "/servers/npgsql-update"] = HttpServerWithNpgsqlUpdate;
+            Post["HttpServer to test npgsql insert operation", "/servers/npgsql-insert"] = HttpServerWithNpgsqlInsert;
+            Put["HttpServer to test npgsql update operation", "/servers/npgsql-update"] = HttpServerWithNpgsqlUpdate;
 
             Get["HttpServer to test marten query operation", "/servers/marten"] = HttpServerWithMarten;
 
@@ -73,10 +74,10 @@ namespace DotNet.Perf
                         cmd.CommandText = InsertSQL;
                         //@id, @data, @last_modified, @version, @dotnet_type
                         cmd.Parameters.AddWithValue("id", prod.Id);
-                        cmd.Parameters.AddWithValue("data", JsonConvert.SerializeObject(prod));
+                        cmd.Parameters.AddWithValue("data", NpgsqlDbType.Jsonb, JsonConvert.SerializeObject(prod));
                         cmd.Parameters.AddWithValue("last_modified", DateTimeOffset.Now);
                         cmd.Parameters.AddWithValue("version", Guid.NewGuid());
-                        cmd.Parameters.AddWithValue("dotnet_type", prod.GetType());
+                        cmd.Parameters.AddWithValue("dotnet_type", prod.GetType().ToString());
                         cmd.ExecuteNonQuery();
                     }
                 }
@@ -93,7 +94,12 @@ namespace DotNet.Perf
                 InsertedIds.AddRange(GetInsertedIds());
             }
 
-            int randomIndex = new Random().Next(0, InsertedIds.Count - 1);
+            if (InsertedIds.Count == 0)
+            {
+                throw new Exception("Please call 'insert' api to insert some records for updating!");
+            }
+
+            int randomIndex = new Random().Next(0, InsertedIds.Count);
             string theId = InsertedIds[randomIndex];
             Product prod = new Product("Updated: Test Prod", "Updated: " + PROD_DESC);
             prod.SetId(theId);
@@ -109,7 +115,7 @@ namespace DotNet.Perf
                         cmd.Connection = conn;
                         cmd.CommandText = UpdateSQL;
                         //@data, @id
-                        cmd.Parameters.AddWithValue("data", JsonConvert.SerializeObject(prod));
+                        cmd.Parameters.AddWithValue("data", NpgsqlDbType.Jsonb, JsonConvert.SerializeObject(prod));
                         cmd.Parameters.AddWithValue("id", prod.Id);
                         cmd.ExecuteNonQuery();
                     }
