@@ -91,7 +91,14 @@ namespace DotNet.Perf
             // cache the ids of the inserted records
             if (InsertedIds.IsEmpty())
             {
-                InsertedIds.AddRange(GetInsertedIds());
+                lock (getIdLock)
+                {
+                    if (InsertedIds.IsEmpty())
+                    {
+                        InsertedIds.AddRange(GetInsertedIds());
+                        Log.InfoFormat("Total existed Ids: {0}", InsertedIds.Count);
+                    }
+                }
             }
 
             if (InsertedIds.Count == 0)
@@ -99,7 +106,7 @@ namespace DotNet.Perf
                 throw new Exception("Please call 'insert' api to insert some records for updating!");
             }
 
-            int randomIndex = new Random().Next(0, InsertedIds.Count);
+            int randomIndex = new Random().Next(InsertedIds.Count);
             string theId = InsertedIds[randomIndex];
             Product prod = new Product("Updated: Test Prod", "Updated: " + PROD_DESC);
             prod.SetId(theId);
@@ -202,6 +209,7 @@ namespace DotNet.Perf
         private readonly IDocumentStore documentStore;
         private static readonly ILog Log = LogManager.GetLogger<HttpServerModule>();
         private static readonly List<string> InsertedIds = new List<string>();
+        private static readonly object getIdLock = new object();
         private static readonly string QuerySQL = "SELECT '1' FROM pg_stat_activity";
         private static readonly string InsertSQL = @"
 INSERT INTO public.perf_testing_product(
