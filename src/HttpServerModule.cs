@@ -285,7 +285,7 @@ namespace DotNet.Perf
         private static readonly List<string> MartenInsertedIds = new List<string>();
         private static readonly object npgsqlIdLock = new object();
         private static readonly object martenIdLock = new object();
-        private static readonly string QuerySQL = "SELECT '1' FROM pg_stat_activity";
+        private static readonly string QuerySQL = "SELECT '1' FROM pg_stat_activity limit 1";
         private static readonly string InsertSQL = @"
 INSERT INTO public.perf_testing_product(
 	id, data, mt_last_modified, mt_version, mt_dotnet_type)
