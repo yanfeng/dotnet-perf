@@ -82,8 +82,7 @@ namespace DotNet.Perf
                 var serializer = new Marten.Services.JsonNetSerializer();
                 serializer.Customize(_ =>
                 {
-                    //_.ContractResolver = new
-                    //    Infrastructure.Postgres.PrivateSettersContractResolvers.PrivateSetterContractResolver();
+                    _.ContractResolver = new PrivateSetterContractResolver();
                 });
 
                 var store = DocumentStore
@@ -110,8 +109,7 @@ namespace DotNet.Perf
         {
             string connString = options.Database;
             ExecuteSQL(connString, SQL_DROP_TABLE);
-            ExecuteSQL(connString, SQL_CREATING_TABLE_SCHEMA1);
-            ExecuteSQL(connString, SQL_CREATING_TABLE_SCHEMA2);
+            ExecuteSQL(connString, SQL_CREATING_TABLE_SCHEMA);
         }
 
         private void ExecuteSQL(string connString, string SQL)
@@ -136,26 +134,11 @@ namespace DotNet.Perf
         private static readonly string SQL_DROP_TABLE = @"
 BEGIN;
     DROP TABLE IF EXISTS public.perf_testing_product;
-    DROP TABLE IF EXISTS public.perf_testing_track_id;
+    DROP TABLE IF EXISTS public.mt_doc_testproduct;
 COMMIT;
 ";
 
-        private static readonly string SQL_CREATING_TABLE_SCHEMA1 = @"
-BEGIN;
-    CREATE TABLE IF NOT EXISTS public.perf_testing_track_id
-    (
-        id character varying COLLATE pg_catalog.""default"" NOT NULL,
-        insert_id character varying COLLATE pg_catalog.""default"" NOT NULL,
-        CONSTRAINT perf_testing_track_id_id PRIMARY KEY(id)
-    )
-    WITH(
-        OIDS = FALSE
-    )
-    TABLESPACE pg_default;
-COMMIT;
-";
-
-        private static readonly string SQL_CREATING_TABLE_SCHEMA2 = @"
+        private static readonly string SQL_CREATING_TABLE_SCHEMA = @"
 BEGIN;
     -- Table: public.perf_testing_product
 

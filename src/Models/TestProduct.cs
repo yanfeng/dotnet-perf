@@ -2,11 +2,19 @@
 
 namespace DotNet.Perf.Models
 {
-    public class Product
+    public class TestProduct
     {
-        public Product(string name, string description)
+        internal TestProduct()
         {
-            Id = Guid.NewGuid().ToString();
+        }
+
+        public TestProduct(string name, string description)
+        {
+            if (string.IsNullOrWhiteSpace(Id))
+            {
+                Id = Guid.NewGuid().ToString();
+            }
+            
             Name = name;
             Description = description;
             Stamp = new Stamp(
@@ -21,6 +29,16 @@ namespace DotNet.Perf.Models
         public void SetId(string id)
         {
             Id = id;
+        }
+
+        public void ChangeName(string name)
+        {
+            Name = name;
+        }
+
+        public void ChangeDescription(string description)
+        {
+            Description = description;
         }
 
         public string Id { get; private set; }

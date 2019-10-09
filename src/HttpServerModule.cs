@@ -22,7 +22,9 @@ namespace DotNet.Perf
             Post["HttpServer to test npgsql insert operation", "/servers/npgsql-insert"] = HttpServerWithNpgsqlInsert;
             Put["HttpServer to test npgsql update operation", "/servers/npgsql-update"] = HttpServerWithNpgsqlUpdate;
 
-            Get["HttpServer to test marten query operation", "/servers/marten"] = HttpServerWithMarten;
+            Get["HttpServer to test marten query operation", "/servers/marten"] = HttpServerWithMartenQuery;
+            Post["HttpServer to test marten insert operation", "/servers/marten-insert"] = HttpServerWithMartenInsert;
+            Put["HttpServer to test marten update operation", "/servers/marten-update"] = HttpServerWithMartenUpdate;
 
             this.options = options;
             this.documentStore = documentStore;
@@ -61,7 +63,7 @@ namespace DotNet.Perf
         {
             var response = RunDbFunction(options.Database, () =>
             {
-                Product prod = new Product("Test Prod", PROD_DESC);
+                TestProduct prod = new TestProduct("Test Prod", PROD_DESC);
 
                 using (var conn = new NpgsqlConnection(options.Database))
                 {
@@ -89,26 +91,26 @@ namespace DotNet.Perf
         private Response HttpServerWithNpgsqlUpdate(dynamic parameters)
         {
             // cache the ids of the inserted records
-            if (InsertedIds.IsEmpty())
+            if (NpgsqlInsertedIds.IsEmpty())
             {
-                lock (getIdLock)
+                lock (npgsqlIdLock)
                 {
-                    if (InsertedIds.IsEmpty())
+                    if (NpgsqlInsertedIds.IsEmpty())
                     {
-                        InsertedIds.AddRange(GetInsertedIds());
-                        Log.InfoFormat("Total existed Ids: {0}", InsertedIds.Count);
+                        NpgsqlInsertedIds.AddRange(GetInsertedIds("perf_testing_product"));
+                        Log.InfoFormat("Total existed Ids: {0}", NpgsqlInsertedIds.Count);
                     }
                 }
             }
 
-            if (InsertedIds.Count == 0)
+            if (NpgsqlInsertedIds.Count == 0)
             {
                 throw new Exception("Please call 'insert' api to insert some records for updating!");
             }
 
-            int randomIndex = new Random().Next(InsertedIds.Count);
-            string theId = InsertedIds[randomIndex];
-            Product prod = new Product("Updated: Test Prod", "Updated: " + PROD_DESC);
+            int randomIndex = new Random().Next(NpgsqlInsertedIds.Count);
+            string theId = NpgsqlInsertedIds[randomIndex];
+            TestProduct prod = new TestProduct("Updated: Test Prod", "Updated: " + PROD_DESC);
             prod.SetId(theId);
 
             var response = RunDbFunction(options.Database, () =>
@@ -132,11 +134,11 @@ namespace DotNet.Perf
             return response;
         }
 
-        private Response HttpServerWithMarten(dynamic parameters)
+        private Response HttpServerWithMartenQuery(dynamic parameters)
         {
             var response = RunDbFunction(options.Database, () =>
             {
-                using (var session = documentStore.QuerySession())
+                using (var session = documentStore.LightweightSession())
                 {
                     session.Query<string>(QuerySQL);
 
@@ -147,7 +149,62 @@ namespace DotNet.Perf
             return response;
         }
 
-        private List<string> GetInsertedIds()
+        private Response HttpServerWithMartenInsert(dynamic parameters)
+        {
+            var response = RunDbFunction(options.Database, () =>
+            {
+                TestProduct prod = new TestProduct("Test Prod", PROD_DESC);
+
+                using (var session = documentStore.LightweightSession())
+                {
+                    session.Store<TestProduct>(prod);
+                    session.SaveChanges();
+                }
+            });
+
+            return response;
+        }
+
+        private Response HttpServerWithMartenUpdate(dynamic parameters)
+        {
+            // cache the ids of the inserted records
+            if (NpgsqlInsertedIds.IsEmpty())
+            {
+                lock (npgsqlIdLock)
+                {
+                    if (NpgsqlInsertedIds.IsEmpty())
+                    {
+                        NpgsqlInsertedIds.AddRange(GetInsertedIds("mt_doc_testproduct"));
+                        Log.InfoFormat("Total existed Ids: {0}", NpgsqlInsertedIds.Count);
+                    }
+                }
+            }
+
+            if (NpgsqlInsertedIds.Count == 0)
+            {
+                throw new Exception("Please call 'insert' api to insert some records for updating!");
+            }
+
+            int randomIndex = new Random().Next(NpgsqlInsertedIds.Count);
+            string theId = NpgsqlInsertedIds[randomIndex];
+            
+            var response = RunDbFunction(options.Database, () =>
+            {
+                using (var session = documentStore.LightweightSession())
+                {
+                    var prod = session.Load<TestProduct>(theId);
+                    prod.ChangeName("Updated: Test Prod");
+                    prod.ChangeDescription("Updated: " + PROD_DESC);
+
+                    session.Store<TestProduct>(prod);
+                    session.SaveChanges();
+                }
+            });
+
+            return response;
+        }
+
+        private List<string> GetInsertedIds(string tableName)
         {
             List<string> theIds = new List<string>();
 
@@ -158,7 +215,7 @@ namespace DotNet.Perf
                     conn.Open();
 
                     // Retrieve all rows
-                    using (var cmd = new NpgsqlCommand("SELECT id FROM perf_testing_product", conn))
+                    using (var cmd = new NpgsqlCommand("SELECT id FROM " + tableName, conn))
                     using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
@@ -171,7 +228,7 @@ namespace DotNet.Perf
 
             return theIds;
         }
-
+        
         private Response RunDbFunction(string conn, Action func)
         {
             if (string.IsNullOrEmpty(conn))
@@ -208,8 +265,10 @@ namespace DotNet.Perf
         private readonly Program.Options options;
         private readonly IDocumentStore documentStore;
         private static readonly ILog Log = LogManager.GetLogger<HttpServerModule>();
-        private static readonly List<string> InsertedIds = new List<string>();
-        private static readonly object getIdLock = new object();
+        private static readonly List<string> NpgsqlInsertedIds = new List<string>();
+        private static readonly List<string> MartenInsertedIds = new List<string>();
+        private static readonly object npgsqlIdLock = new object();
+        private static readonly object martenIdLock = new object();
         private static readonly string QuerySQL = "SELECT '1' FROM pg_stat_activity";
         private static readonly string InsertSQL = @"
 INSERT INTO public.perf_testing_product(
