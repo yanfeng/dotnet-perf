@@ -22,7 +22,8 @@ namespace DotNet.Perf
             Post["HttpServer to test npgsql insert operation", "/servers/npgsql-insert"] = HttpServerWithNpgsqlInsert;
             Put["HttpServer to test npgsql update operation", "/servers/npgsql-update"] = HttpServerWithNpgsqlUpdate;
 
-            Get["HttpServer to test marten query operation", "/servers/marten"] = HttpServerWithMartenQuery;
+            Get["HttpServer to test marten query operation with LightweightSession", "/servers/marten-ls"] = HttpServerWithMartenQuery_LightweightSession;
+            Get["HttpServer to test marten query operation with QuerySession", "/servers/marten-qs"] = HttpServerWithMartenQuery_QuerySession;
             Post["HttpServer to test marten insert operation", "/servers/marten-insert"] = HttpServerWithMartenInsert;
             Put["HttpServer to test marten update operation", "/servers/marten-update"] = HttpServerWithMartenUpdate;
 
@@ -134,11 +135,26 @@ namespace DotNet.Perf
             return response;
         }
 
-        private Response HttpServerWithMartenQuery(dynamic parameters)
+        private Response HttpServerWithMartenQuery_LightweightSession(dynamic parameters)
         {
             var response = RunDbFunction(options.Database, () =>
             {
                 using (var session = documentStore.LightweightSession())
+                {
+                    session.Query<string>(QuerySQL);
+
+                    Thread.Sleep(options.Timewait);
+                }
+            });
+
+            return response;
+        }
+
+        private Response HttpServerWithMartenQuery_QuerySession(dynamic parameters)
+        {
+            var response = RunDbFunction(options.Database, () =>
+            {
+                using (var session = documentStore.QuerySession())
                 {
                     session.Query<string>(QuerySQL);
 
