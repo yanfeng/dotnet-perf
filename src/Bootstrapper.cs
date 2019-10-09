@@ -22,7 +22,7 @@ namespace DotNet.Perf
             existingContainer.Register<Program.Options>(options);
 
             var store = InitializeDocumentStore(options.Database);
-            existingContainer.Register<IDocumentStore>(store).AsSingleton();
+            existingContainer.Register<IDocumentStore>(store);
         }
 
         protected override void ApplicationStartup(TinyIoCContainer container, IPipelines pipelines)
