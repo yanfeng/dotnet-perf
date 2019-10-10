@@ -184,25 +184,25 @@ namespace DotNet.Perf
         private Response HttpServerWithMartenUpdate(dynamic parameters)
         {
             // cache the ids of the inserted records
-            if (NpgsqlInsertedIds.IsEmpty())
+            if (MartenInsertedIds.IsEmpty())
             {
                 lock (npgsqlIdLock)
                 {
-                    if (NpgsqlInsertedIds.IsEmpty())
+                    if (MartenInsertedIds.IsEmpty())
                     {
-                        NpgsqlInsertedIds.AddRange(GetInsertedIds("mt_doc_testproduct"));
-                        Log.InfoFormat("Total existed Ids: {0}", NpgsqlInsertedIds.Count);
+                        MartenInsertedIds.AddRange(GetInsertedIds("mt_doc_testproduct"));
+                        Log.InfoFormat("Total existed Ids: {0}", MartenInsertedIds.Count);
                     }
                 }
             }
 
-            if (NpgsqlInsertedIds.Count == 0)
+            if (MartenInsertedIds.Count == 0)
             {
                 throw new Exception("Please call 'insert' api to insert some records for updating!");
             }
 
-            int randomIndex = new Random().Next(NpgsqlInsertedIds.Count);
-            string theId = NpgsqlInsertedIds[randomIndex];
+            int randomIndex = new Random().Next(MartenInsertedIds.Count);
+            string theId = MartenInsertedIds[randomIndex];
             
             var response = RunDbFunction(options.Database, () =>
             {
