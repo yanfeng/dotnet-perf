@@ -8,6 +8,7 @@ using Npgsql;
 using NpgsqlTypes;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 
 namespace DotNet.Perf
@@ -141,7 +142,7 @@ namespace DotNet.Perf
             {
                 using (var session = documentStore.LightweightSession())
                 {
-                    session.Query<string>(QuerySQL);
+                    session.Query<string>(QuerySQL).FirstOrDefault();
 
                     Thread.Sleep(options.Timewait);
                 }
@@ -156,7 +157,7 @@ namespace DotNet.Perf
             {
                 using (var session = documentStore.QuerySession())
                 {
-                    session.Query<string>(QuerySQL);
+                    session.Query<string>(QuerySQL).FirstOrDefault();
 
                     Thread.Sleep(options.Timewait);
                 }
