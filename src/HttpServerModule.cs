@@ -288,14 +288,14 @@ namespace DotNet.Perf
                 var startTime = DateTime.Now;
                 Log.Info($"Working started at {DateTime.Now}");
 
-                TestProduct prod = new TestProduct("Test Prod", PROD_DESC);
-
                 using (var session = documentStore.LightweightSession())
                 {
                     while (DateTime.Now.Subtract(startTime).TotalMinutes < connectionAliveInMinutes)
                     {
                         try
                         {
+                            TestProduct prod = new TestProduct("Test Prod", PROD_DESC);
+
                             session.Store<TestProduct>(prod);
                             session.SaveChanges();
 
