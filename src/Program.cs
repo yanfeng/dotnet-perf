@@ -58,7 +58,7 @@ namespace DotNet.Perf
             [Option('u', "uri", HelpText = "Service URI, e.g. http://localhost:7002/api/v1/", DefaultValue = "http://localhost:7002/api/v1/")]
             public string ServiceUri { get; set; }
 
-            [Option('d', "db", HelpText = "Database Connection String, e.g. Host=localhost;Port=5444;Database=perf_testing;Username=postgres;Password=123456;Pooling=false;", DefaultValue = "")]
+            [Option('d', "db", HelpText = "Database Connection String, e.g. Host=localhost;Port=5432;Database=perf_testing;Username=postgres;Password=123456;Pooling=false;", DefaultValue = "")]
             public string Database { get; set; }
 
             [Option('t', "timewait", DefaultValue = 0, HelpText = "Timewait (ms) after DB Query operation is done but before the connection is disposed by application.")]

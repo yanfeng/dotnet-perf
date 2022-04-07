@@ -9,6 +9,7 @@ using NpgsqlTypes;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 
 namespace DotNet.Perf
@@ -27,6 +28,11 @@ namespace DotNet.Perf
             Get["HttpServer to test marten query operation with QuerySession", "/servers/marten-qs"] = HttpServerWithMartenQuery_QuerySession;
             Post["HttpServer to test marten insert operation", "/servers/marten-insert"] = HttpServerWithMartenInsert;
             Put["HttpServer to test marten update operation", "/servers/marten-update"] = HttpServerWithMartenUpdate;
+
+            Get["HttpServer to test marten long connection query operation with LightweightSession", 
+                "/servers/marten-ls-long-connection"] = HttpServerWithMartenQueryLongConnection_LightweightSession;
+            Post["HttpServer to test marten insert operation with long connection", 
+                "/servers/marten-insert-long-connection"] = HttpServerWithMartenInsertLongConnection;
 
             this.options = options;
             this.documentStore = documentStore;
@@ -215,6 +221,103 @@ namespace DotNet.Perf
 
                     session.Store<TestProduct>(prod);
                     session.SaveChanges();
+                }
+            });
+
+            return response;
+        }
+
+        private Response HttpServerWithMartenQueryLongConnection_LightweightSession(dynamic parameters)
+        {
+            double connectionAliveInMinutes = double.Parse(Request.Query["connectionAliveInMinutes"]);
+
+            int actionCount = 0;
+            int errorCount = 0;
+            StringBuilder errorMessage = new StringBuilder();
+
+            var response = RunDbFunction(options.Database, () =>
+            {
+                var startTime = DateTime.Now;
+                Log.Info($"Working started at {DateTime.Now}");
+
+                using (var session = documentStore.LightweightSession())
+                {
+                    while (DateTime.Now.Subtract(startTime).TotalMinutes < connectionAliveInMinutes)
+                    {
+                        try
+                        {
+                            session.Query<string>(QuerySQL).FirstOrDefault();
+
+                            actionCount++;
+
+                            Thread.Sleep(options.Timewait);
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Error(ex);
+
+                            errorCount++;
+                            errorMessage.AppendLine(ex.Message);                          
+                        }
+                    }
+                }
+
+                int duration = (int) DateTime.Now.Subtract(startTime).TotalSeconds;
+                int countPerSec = actionCount / duration;
+                Log.Info($"Total {actionCount} queries executed! Duration: {duration} seconds. Rate: {countPerSec} records/second.");
+
+                if (errorMessage.Length > 0)
+                {
+                    throw new Exception($"Totol {errorCount} errors. {errorMessage}");
+                }
+            });
+
+            return response;
+        }
+
+        private Response HttpServerWithMartenInsertLongConnection(dynamic parameters)
+        {
+            double connectionAliveInMinutes = double.Parse(Request.Query["connectionAliveInMinutes"]);
+
+            int actionCount = 0;
+            int errorCount = 0;
+            StringBuilder errorMessage = new StringBuilder();
+
+            var response = RunDbFunction(options.Database, () =>
+            {
+                var startTime = DateTime.Now;
+                Log.Info($"Working started at {DateTime.Now}");
+
+                TestProduct prod = new TestProduct("Test Prod", PROD_DESC);
+
+                using (var session = documentStore.LightweightSession())
+                {
+                    while (DateTime.Now.Subtract(startTime).TotalMinutes < connectionAliveInMinutes)
+                    {
+                        try
+                        {
+                            session.Store<TestProduct>(prod);
+                            session.SaveChanges();
+
+                            actionCount++;
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Error(ex);
+
+                            errorCount++;
+                            errorMessage.AppendLine(ex.Message);
+                        }
+                    }
+                }
+
+                int duration = (int) DateTime.Now.Subtract(startTime).TotalSeconds;
+                int countPerSec = actionCount / duration;
+                Log.Info($"Total {actionCount} records inserted! Duration: {duration} seconds. Rate: {countPerSec} records/second.");
+
+                if (errorMessage.Length > 0)
+                {
+                    throw new Exception($"Totol {errorCount} errors. {errorMessage}");
                 }
             });
 
